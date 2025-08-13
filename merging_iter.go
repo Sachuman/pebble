@@ -698,7 +698,6 @@ func (m *mergingIter) isNextEntryDeleted(item *mergingIterLevel) (bool, error) {
 func (m *mergingIter) findNextEntry() *base.InternalKV {
 	for m.heap.len() > 0 && m.err == nil {
 		item := m.heap.items[0].mergingIterLevel
-
 		// The levelIter internal iterator will interleave exclusive sentinel
 		// keys to keep files open until their range deletions are no longer
 		// necessary. Sometimes these are interleaved with the user key of a
@@ -974,6 +973,9 @@ func (m *mergingIter) seekGE(key []byte, level int, flags base.SeekGEFlags) erro
 					l.iterKV = nil
 				}
 			}
+			if bytes.Equal(key, []byte("aesmjgwgg@14")) && l.iterKV != nil {
+				fmt.Printf("SeekPrefixGE: level %d key %s, seqnum %s, value %v kind %s\n", level, l.iterKV.K.UserKey, l.iterKV.K.Trailer, l.iterKV.V, l.iterKV.K.Kind().String())
+			}
 		} else {
 			l.iterKV = l.iter.SeekGE(key, flags)
 		}
@@ -1170,6 +1172,14 @@ func (m *mergingIter) Next() *base.InternalKV {
 	if m.err != nil {
 		return nil
 	}
+	// if bytes.Equal(m.prefix, []byte("yssrjgim")) {
+	// 	for i := range m.levels {
+	// 		if m.levels[i].iterKV != nil {
+	// 			fmt.Printf("  m.levels[%d] = %s (iter = %s)\n", i, m.levels[i].iterKV.K, m.levels[i].iter)
+	// 		}
+	// 		fmt.Println()
+	// 	}
+	// }
 
 	if m.dir != 1 {
 		if m.err = m.switchToMinHeap(); m.err != nil {

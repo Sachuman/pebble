@@ -31,6 +31,7 @@ const (
 	InternalKeyKindDeleteSized    = base.InternalKeyKindDeleteSized
 	InternalKeyKindExcise         = base.InternalKeyKindExcise
 	InternalKeyKindInvalid        = base.InternalKeyKindInvalid
+	InternalKeyKindSyntheticKey   = base.InternalKeyKindSyntheticKey
 )
 
 // InternalKeyTrailer exports the base.InternalKeyTrailer type.

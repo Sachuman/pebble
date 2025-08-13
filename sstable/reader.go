@@ -95,13 +95,19 @@ func (r *Reader) Close() error {
 
 // IterOptions defines options for configuring a sstable pointer iterator.
 type IterOptions struct {
-	Lower, Upper         []byte
-	Transforms           IterTransforms
-	Filterer             *BlockPropertiesFilterer
-	FilterBlockSizeLimit FilterBlockSizeLimit
-	Env                  ReadEnv
-	ReaderProvider       valblk.ReaderProvider
-	BlobContext          TableBlobContext
+	Lower, Upper          []byte
+	Transforms            IterTransforms
+	Filterer              *BlockPropertiesFilterer
+	FilterBlockSizeLimit  FilterBlockSizeLimit
+	Env                   ReadEnv
+	ReaderProvider        valblk.ReaderProvider
+	BlobContext           TableBlobContext
+	MaximumSuffixProperty MaximumSuffixProperty
+}
+
+type MaximumSuffixProperty interface {
+	Name() string
+	Extract(encodedProperty []byte) (suffix []byte, ok bool, err error)
 }
 
 // NewPointIter returns an iterator for the point keys in the table.
