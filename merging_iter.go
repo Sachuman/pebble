@@ -699,6 +699,34 @@ func (m *mergingIter) findNextEntry() *base.InternalKV {
 	for m.heap.len() > 0 && m.err == nil {
 		item := m.heap.items[0].mergingIterLevel
 
+		// If the top-of-heap entry is synthetic, resolve it by seeking within the
+		// current file to the real KV.
+		// if item.iterKV.K.Synthetic {
+		// 	// Perform a direct seek on the underlying file iterator, explicitly
+		// 	// disabling synthetic so we fetch the actual KV if present.
+		// 	kv := item.iter.Next()
+		// 	if kv != nil {
+		// 		// Found the exact user key we synthesized. Replace the synthetic
+		// 		// entry with the real one and fix the heap.
+		// 		item.iterKV = kv
+		// 		item.iterKV.K.Synthetic = false
+		// 		// if m.heap.len() > 1 {
+		// 		// 	m.heap.fixTop()
+		// 		// }
+		// 		// // Continue loop to process
+		// 		// continue
+		// 	}
+		// 	// Key not present in this file (or landed on a different user key);
+		// 	// advance this level.
+		// 	m.err = m.nextEntry(item, nil /* succKey */)
+		// 	if m.err != nil {
+		// 		return nil
+		// 	}
+		// 	continue
+		// }
+		// SeekPrefixGE
+		// return the the KV
+
 		// The levelIter internal iterator will interleave exclusive sentinel
 		// keys to keep files open until their range deletions are no longer
 		// necessary. Sometimes these are interleaved with the user key of a
@@ -711,7 +739,7 @@ func (m *mergingIter) findNextEntry() *base.InternalKV {
 		// We perform a key comparison to differentiate between these two cases.
 		// This key comparison is considered okay because it only happens for
 		// sentinel keys. It may be eliminated after #2863.
-		if m.levels[item.index].iterKV.K.IsExclusiveSentinel() {
+		if m.levels[item.index].iterKV.K.IsExclusiveSentinel() || m.levels[item.index].iterKV.K.Synthetic {
 			if m.upper != nil && m.heap.cmp(m.levels[item.index].iterKV.K.UserKey, m.upper) >= 0 {
 				break
 			}

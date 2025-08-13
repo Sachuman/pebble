@@ -261,8 +261,9 @@ func (t InternalKeyTrailer) IsExclusiveSentinel() bool {
 //   - 1 byte for the type of internal key: delete or set,
 //   - 7 bytes for a uint56 sequence number, in little-endian format.
 type InternalKey struct {
-	UserKey []byte
-	Trailer InternalKeyTrailer
+	UserKey   []byte
+	Trailer   InternalKeyTrailer
+	Synthetic bool
 }
 
 // InvalidInternalKey is an invalid internal key for which Valid() will return

@@ -8,6 +8,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -165,7 +168,8 @@ type singleLevelIterator[I any, PI indexBlockIterator[I], D any, PD dataBlockIte
 	useFilterBlock         bool
 	lastBloomFilterMatched bool
 
-	transforms IterTransforms
+	transforms            IterTransforms
+	maximumsuffixproperty MaximumSuffixProperty
 
 	// All fields above this field are cleared when resetting the iterator for reuse.
 	clearForResetBoundary struct{}
@@ -287,6 +291,7 @@ func (i *singleLevelIterator[I, PI, D, PD]) init(ctx context.Context, r *Reader,
 		objstorage.ReadBeforeForIndexAndFilter, &i.indexFilterRHPrealloc)
 	i.dataRH = r.blockReader.UsePreallocatedReadHandle(
 		objstorage.NoReadBefore, &i.dataRHPrealloc)
+	i.maximumsuffixproperty = opts.MaximumSuffixProperty
 }
 
 // Helper function to check if keys returned from iterator are within virtual bounds.
@@ -809,9 +814,45 @@ func (i *singleLevelIterator[I, PI, D, PD]) seekPrefixGE(
 	// NOTE: prefix is only used for bloom filter checking and not later work in
 	// this method. Hence, we can use the existing iterator position if the last
 	// SeekPrefixGE did not fail bloom filter matching.
-
+	//(flags & (1 << flags.CurrentSynthetic()))
 	err := i.err
-	i.err = nil // clear cached iteration error
+	i.err = nil
+
+	// Reset the exhausted/bounds state just as the normal path would:
+
+	if i.maximumsuffixproperty != nil {
+		prop := i.reader.UserProperties[i.maximumsuffixproperty.Name()]
+		latestTS, ok, err2 := i.maximumsuffixproperty.Extract([]byte(prop))
+		if err2 != nil {
+			panic("Error in extraction")
+		}
+		// only compare timestamps if there was a real key to slice
+		if len(key) > len(prefix)+1 {
+			currentTS := key[len(prefix)+1:]
+			latestInt, err1 := strconv.ParseUint(strings.TrimSpace(string(latestTS)), 10, 64)
+			currentInt, err2 := strconv.ParseUint(strings.TrimSpace(string(currentTS)), 10, 64)
+			if err1 != nil || err2 != nil || latestInt > currentInt {
+				ok = false
+			}
+		} else {
+			ok = false
+		}
+		if ok && latestTS != nil {
+			// build the synthetic key
+			concat := append(append(prefix, '@'), latestTS...)
+			ret := base.InternalKey{
+				UserKey:   concat,
+				Trailer:   base.MakeTrailer(math.MaxUint64, base.InternalKeyKindSet),
+				Synthetic: true,
+			}
+			kv := &base.InternalKV{K: ret, V: base.InternalValue{}}
+			//  we've already cleared the exhausted state still getting errors
+			i.exhaustedBounds = 0
+			i.boundsCmp = 0
+			i.positionedUsingLatestBounds = true
+			return kv
+		}
+	}
 	if i.useFilterBlock {
 		if !i.lastBloomFilterMatched {
 			// Iterator is not positioned based on last seek.
@@ -1223,6 +1264,7 @@ func (i *singleLevelIterator[I, PI, D, PD]) lastInternal() *base.InternalKV {
 // due to performance. Keep the two in sync.
 func (i *singleLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 	if i.exhaustedBounds == +1 {
+		// fmt.Println("here was the issue")
 		panic("Next called even though exhausted upper bound")
 	}
 	i.exhaustedBounds = 0

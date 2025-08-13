@@ -8,9 +8,11 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -95,13 +97,59 @@ func (r *Reader) Close() error {
 
 // IterOptions defines options for configuring a sstable pointer iterator.
 type IterOptions struct {
-	Lower, Upper         []byte
-	Transforms           IterTransforms
-	Filterer             *BlockPropertiesFilterer
-	FilterBlockSizeLimit FilterBlockSizeLimit
-	Env                  ReadEnv
-	ReaderProvider       valblk.ReaderProvider
-	BlobContext          TableBlobContext
+	Lower, Upper          []byte
+	Transforms            IterTransforms
+	Filterer              *BlockPropertiesFilterer
+	FilterBlockSizeLimit  FilterBlockSizeLimit
+	Env                   ReadEnv
+	ReaderProvider        valblk.ReaderProvider
+	BlobContext           TableBlobContext
+	MaximumSuffixProperty MaximumSuffixProperty
+}
+
+type MaximumSuffixProperty interface {
+	Name() string
+	Extract(encodedProperty []byte) (suffix []byte, ok bool, err error)
+}
+type MaxTestKeysProp struct{}
+
+func (testprop MaxTestKeysProp) Name() string {
+	return `pebble.internal.testkeys.suffixes`
+}
+
+func (testprop MaxTestKeysProp) Extract(
+	encodedProperty []byte,
+) (suffix []byte, ok bool, err error) {
+	if len(encodedProperty) <= 1 {
+		return nil, false, nil
+	}
+	// First byte is shortID, skip it and decode interval from remainder
+	intervalData := encodedProperty[1:]
+	// Decode block interval to extract maximum suffix
+	var interval BlockInterval
+	var n int
+	interval.Lower, n = binary.Uvarint(intervalData)
+	if n <= 0 || n >= len(intervalData) {
+		return nil, false, errors.Errorf("cannot decode interval lower bound from %x", intervalData)
+	}
+	pos := n
+	delta, n := binary.Uvarint(intervalData[pos:])
+	pos += n // Upper bound
+	if n <= 0 || pos != len(intervalData) {
+		return nil, false, errors.Errorf("cannot decode interval delta from %x", intervalData)
+	}
+	// Delta decode to get Upper bound
+	interval.Upper = interval.Lower + delta
+	if interval.Upper < interval.Lower {
+		return nil, false, errors.Errorf("interval overflow: upper %d < lower %d", interval.Upper, interval.Lower)
+	}
+	// Maximum suffix is (Upper - 1) since interval is [Lower, Upper)
+	if interval.IsEmpty() {
+		return nil, false, nil
+	}
+	maxSuffix := interval.Upper - 1
+	ret := []byte(strconv.FormatUint(maxSuffix, 10))
+	return ret, true, nil
 }
 
 // NewPointIter returns an iterator for the point keys in the table.

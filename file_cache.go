@@ -704,6 +704,7 @@ func (h *fileCacheHandle) newPointIter(
 				ValueFetcher: internalOpts.blobValueFetcher,
 				References:   blobReferences,
 			},
+			MaximumSuffixProperty: sstable.MaxTestKeysProp{},
 		})
 	}
 	if err != nil {
