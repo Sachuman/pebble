@@ -361,24 +361,24 @@ func (i *InterleavingIter) SeekPrefixGE(
 	if seekKeyspanIter {
 		// Seek keyspans first; use the result to decide whether a reseek is needed.
 		i.keyspanSeekGE(key, prefix)
-		if i.pointKV != nil && i.pointKV.K.Kind() == base.InternalKeyKindSyntheticKey {
-			// Only reseek if a span actually covers the seek key, which would
-			// interleave a boundary at this user key and risk exhausting bounds.
-			if i.span != nil && i.cmp(key, i.span.Start) >= 0 && i.cmp(key, i.span.End) < 0 {
-				pu := i.comparer.Split(i.pointKV.K.UserKey)
-				ku := i.comparer.Split(key)
-				if i.comparer.Compare(i.pointKV.K.UserKey[:pu], key[:ku]) == 0 {
-					i.savePoint(i.pointIter.SeekGE(key, base.SeekGEFlagsNone))
-					// Ensure the reseek did not escape the prefix bounds; if it did, clear the point.
-					if i.pointKV != nil {
-						pu2 := i.comparer.Split(i.pointKV.K.UserKey)
-						if i.comparer.Compare(i.pointKV.K.UserKey[:pu2], prefix) != 0 {
-							i.savePoint(nil)
-						}
-					}
-				}
-			}
-		}
+		// if i.pointKV != nil && i.pointKV.K.Kind() == base.InternalKeyKindSyntheticKey {
+		// 	// Only reseek if a span actually covers the seek key, which would
+		// 	// interleave a boundary at this user key and risk exhausting bounds.
+		// 	if i.span != nil && i.cmp(key, i.span.Start) >= 0 && i.cmp(key, i.span.End) < 0 {
+		// 		pu := i.comparer.Split(i.pointKV.K.UserKey)
+		// 		ku := i.comparer.Split(key)
+		// 		if i.comparer.Compare(i.pointKV.K.UserKey[:pu], key[:ku]) == 0 {
+		// 			i.savePoint(i.pointIter.SeekGE(key, base.SeekGEFlagsNone))
+		// 			// Ensure the reseek did not escape the prefix bounds; if it did, clear the point.
+		// 			if i.pointKV != nil {
+		// 				pu2 := i.comparer.Split(i.pointKV.K.UserKey)
+		// 				if i.comparer.Compare(i.pointKV.K.UserKey[:pu2], prefix) != 0 {
+		// 					i.savePoint(nil)
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 
 	i.dir = +1

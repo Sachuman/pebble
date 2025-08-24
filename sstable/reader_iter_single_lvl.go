@@ -1274,12 +1274,12 @@ func (i *singleLevelIterator[I, PI, D, PD]) lastInternal() *base.InternalKV {
 func (i *singleLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 
 	if i.synthetic.atSyntheticKey {
-		if PI(&i.index).IsDataInvalidated() {
-			PD(&i.data).Invalidate()
-			// Clear any pending synthetic placeholder; underlying index/data are no longer valid.
-			i.synthetic.atSyntheticKey = false
-			return nil
-		}
+		// if PI(&i.index).IsDataInvalidated() {
+		// 	PD(&i.data).Invalidate()
+		// 	// Clear any pending synthetic placeholder; underlying index/data are no longer valid.
+		// 	i.synthetic.atSyntheticKey = false
+		// 	return nil
+		// }
 		result := i.seekGEHelper(i.synthetic.seekKey, 0, base.SeekGEFlagsNone)
 		i.synthetic.atSyntheticKey = false
 		i.exhaustedBounds = 0
@@ -1287,8 +1287,8 @@ func (i *singleLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 			// Instead of letting seekGEHelper call skipForward() which might
 			// violate bounds, invalidate this iterator so the merging iterator
 			// moves to the next one in the heap
-			i.exhaustedBounds = +1
-			PD(&i.data).Invalidate()
+			// i.exhaustedBounds = +1
+			// PD(&i.data).Invalidate()
 			// Ensure no stale synthetic remains if we could not resolve it.
 			i.synthetic.atSyntheticKey = false
 			return nil
