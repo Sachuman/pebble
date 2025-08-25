@@ -973,9 +973,9 @@ func (m *mergingIter) seekGE(key []byte, level int, flags base.SeekGEFlags) erro
 					l.iterKV = nil
 				}
 			}
-			if bytes.Equal(key, []byte("qxdiz@22")) && l.iterKV != nil {
-				fmt.Printf("SeekPrefixGE: level %d key %s, seqnum %s, value %v kind %s\n", level, l.iterKV.K.UserKey, l.iterKV.K.Trailer, l.iterKV.V, l.iterKV.K.Kind().String())
-			}
+			// if bytes.Equal(key, []byte("ssswxzljoj@11")) && l.iterKV != nil {
+			// 	fmt.Printf("SeekPrefixGE: level %d key %s, seqnum %s, value %v kind %s\n", level, l.iterKV.K.UserKey, l.iterKV.K.Trailer, l.iterKV.V, l.iterKV.K.Kind().String())
+			// }
 		} else {
 			l.iterKV = l.iter.SeekGE(key, flags)
 		}

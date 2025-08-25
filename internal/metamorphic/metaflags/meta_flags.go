@@ -99,7 +99,7 @@ func initCommonFlags() *CommonFlags {
 
 	flag.IntVar(&c.NumInstances, "num-instances", 1, "number of pebble instances to create (default: 1)")
 
-	defaultOpTimeout := 2 * time.Minute
+	defaultOpTimeout := 3 * time.Hour
 	if buildtags.SlowBuild {
 		defaultOpTimeout *= 5
 	}

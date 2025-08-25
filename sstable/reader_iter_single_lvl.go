@@ -798,7 +798,10 @@ func (i *singleLevelIterator[I, PI, D, PD]) seekGEHelper(
 func (i *singleLevelIterator[I, PI, D, PD]) SeekPrefixGE(
 	prefix, key []byte, flags base.SeekGEFlags,
 ) *base.InternalKV {
-	i.synthetic.atSyntheticKey = false
+	if i.synthetic.atSyntheticKey {
+		flags = flags.DisableTrySeekUsingNext()
+		i.synthetic.atSyntheticKey = false
+	}
 
 	if i.readEnv.Virtual != nil {
 		// Callers of SeekPrefixGE aren't aware of virtual sstable bounds, so

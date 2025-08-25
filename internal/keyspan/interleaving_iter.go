@@ -321,6 +321,9 @@ func (i *InterleavingIter) SeekPrefixGE(
 	i.clearMask()
 	i.prefix = prefix
 	i.savePoint(i.pointIter.SeekPrefixGE(prefix, key, flags))
+	// if i.pointKV != nil && bytes.Equal(i.pointKV.K.UserKey, []byte("qxdiz@22")) {
+	// 	fmt.Printf("SeekPrefixGE: key %s", key)
+	// }
 
 	// If the point iterator landed on an exclusive sentinel exactly at the
 	// seek's user key, prefer the real point key by reseeking the point iterator.
@@ -357,29 +360,43 @@ func (i *InterleavingIter) SeekPrefixGE(
 			seekKeyspanIter = false
 		}
 	}
-
+	// if i.pointKV != nil && i.pointKV.K.IsExclusiveSentinel() {
+	// 	i.savePoint(i.pointIter.SeekGE(key, base.SeekGEFlagsNone))
+	// 	if i.pointKV != nil {
+	// 		if i.comparer.Compare(i.pointKV.K.UserKey[:i.comparer.Split(i.pointKV.K.UserKey)], prefix) != 0 {
+	// 			i.savePoint(nil)
+	// 		}
+	// 	}
+	// }
 	if seekKeyspanIter {
 		// Seek keyspans first; use the result to decide whether a reseek is needed.
 		i.keyspanSeekGE(key, prefix)
-		// if i.pointKV != nil && i.pointKV.K.Kind() == base.InternalKeyKindSyntheticKey {
-		// 	// Only reseek if a span actually covers the seek key, which would
-		// 	// interleave a boundary at this user key and risk exhausting bounds.
-		// 	if i.span != nil && i.cmp(key, i.span.Start) >= 0 && i.cmp(key, i.span.End) < 0 {
-		// 		pu := i.comparer.Split(i.pointKV.K.UserKey)
-		// 		ku := i.comparer.Split(key)
-		// 		if i.comparer.Compare(i.pointKV.K.UserKey[:pu], key[:ku]) == 0 {
-		// 			i.savePoint(i.pointIter.SeekGE(key, base.SeekGEFlagsNone))
-		// 			// Ensure the reseek did not escape the prefix bounds; if it did, clear the point.
-		// 			if i.pointKV != nil {
-		// 				pu2 := i.comparer.Split(i.pointKV.K.UserKey)
-		// 				if i.comparer.Compare(i.pointKV.K.UserKey[:pu2], prefix) != 0 {
-		// 					i.savePoint(nil)
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// }
+		if i.pointKV != nil && i.pointKV.K.Kind() == base.InternalKeyKindSyntheticKey {
+			// Only reseek if a span actually covers the seek key, which would
+			// interleave a boundary at this user key and risk exhausting bounds.
+			if i.span != nil {
+				pu := i.comparer.Split(i.pointKV.K.UserKey)
+				ku := i.comparer.Split(key)
+				if i.comparer.Compare(i.pointKV.K.UserKey[:pu], key[:ku]) == 0 {
+					i.savePoint(i.pointIter.SeekGE(key, base.SeekGEFlagsNone))
+					// Ensure the reseek did not escape the prefix bounds; if it did, clear the point.
+					if i.pointKV != nil {
+						pu2 := i.comparer.Split(i.pointKV.K.UserKey)
+						if i.comparer.Compare(i.pointKV.K.UserKey[:pu2], prefix) != 0 {
+							i.savePoint(nil)
+						}
+					}
+				}
+			}
+		}
 	}
+
+	// if bytes.Equal(key, []byte("qxdiz@22")) {
+	// 	if i.pointKV != nil {
+	// 		fmt.Printf("SeekPrefixGE: key %s, pointKV %s\n", key, i.pointKV.K.UserKey)
+
+	// 	}
+	// }
 
 	i.dir = +1
 	i.computeSmallestPos()

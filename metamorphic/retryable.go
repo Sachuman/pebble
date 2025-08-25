@@ -5,9 +5,6 @@
 package metamorphic
 
 import (
-	"bytes"
-	"fmt"
-
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs/errorfs"
@@ -171,9 +168,6 @@ func (i *retryableIter) SeekLTWithLimit(key []byte, limit []byte) pebble.IterVal
 
 func (i *retryableIter) SeekPrefixGE(key []byte) bool {
 	var valid bool
-	if bytes.Equal(key, []byte("qxdiz@22")) {
-		fmt.Printf("SeekPrefixGE: key %s\n", key)
-	}
 	i.withRetry(func() { valid = i.iter.SeekPrefixGE(key) })
 	return valid
 }

@@ -26,7 +26,7 @@ next
 a@10: (a10, .)
 a@8: (a8, .)
 OpNextSeekPrefixGE("a@12") = (a@10#inf,SYNTHETIC,"")
-OpNextNext() = (a@5#10,SET,"10")
+OpNextSeekGE("a@12") = (a@5#10,SET,"10")
 OpNextClose() = nil
 
 # Basic test with no probes
@@ -75,9 +75,9 @@ a@6: (a6, .)
 OpNextSeekPrefixGE("a@15") = (a@10#inf,SYNTHETIC,"")
 OpNextSeekPrefixGE("a@15") = (a@10#inf,SYNTHETIC,"")
 OpNextSeekPrefixGE("a@15") = (a@10#inf,SYNTHETIC,"")
-OpNextNext() = (a@5#10,SET,"10")
-OpNextNext() = (a@5#10,SET,"10")
-OpNextNext() = (a@5#10,SET,"10")
+OpNextSeekGE("a@15") = (a@5#10,SET,"10")
+OpNextSeekGE("a@15") = (a@5#10,SET,"10")
+OpNextSeekGE("a@15") = (a@5#10,SET,"10")
 OpNextClose() = nil
 OpNextClose() = nil
 OpNextClose() = nil
