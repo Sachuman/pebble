@@ -5,6 +5,8 @@
 package compact
 
 import (
+	"bytes"
+	"fmt"
 	"sort"
 	"time"
 
@@ -330,6 +332,9 @@ func (r *Runner) writeKeysToTable(
 			continue
 		}
 
+		if bytes.Equal(kv.K.UserKey, []byte("ssswxzljoj@8")) {
+			fmt.Printf("writeKeysToTable: %s to sstable %s\n", kv.K, r.tables[len(r.tables)-1].ObjMeta.DiskFileNum)
+		}
 		valueLen := kv.V.Len()
 		// Add the value to the sstable, possibly separating its value into a
 		// blob file. The ValueSeparation implementation is responsible for

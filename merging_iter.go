@@ -537,10 +537,15 @@ func (m *mergingIter) nextEntry(l *mergingIterLevel, succKey []byte) error {
 	oldTopLevel := l.index
 	oldRangeDelIterGeneration := l.rangeDelIterGeneration
 
+	care := bytes.Equal(l.iterKV.K.UserKey, []byte("ssswxzljoj@11"))
 	if succKey == nil {
 		l.iterKV = l.iter.Next()
 	} else {
 		l.iterKV = l.iter.NextPrefix(succKey)
+	}
+
+	if care {
+		fmt.Printf("nextEntry: nexted %s to %s\n", l.iter, l.iterKV)
 	}
 
 	if l.iterKV == nil {
@@ -610,6 +615,10 @@ func (m *mergingIter) isNextEntryDeleted(item *mergingIterLevel) (bool, error) {
 		}
 		if l.tombstone == nil {
 			continue
+		}
+
+		if bytes.Equal(l.tombstone.Start, []byte("ssswxzljoj")) {
+			fmt.Printf("isNextEntryDeleted: tombstone %s\n", l.tombstone)
 		}
 
 		if l.tombstone.VisibleAt(m.snapshot) && m.heap.cmp(l.tombstone.Start, item.iterKV.K.UserKey) <= 0 {
@@ -696,8 +705,15 @@ func (m *mergingIter) isNextEntryDeleted(item *mergingIterLevel) (bool, error) {
 // If an error occurs, m.err is updated to hold the error and findNextentry
 // returns a nil internal key.
 func (m *mergingIter) findNextEntry() *base.InternalKV {
+	var debug bool
+	if len(m.heap.items) > 0 {
+		debug = bytes.Equal(m.heap.items[0].mergingIterLevel.iterKV.K.UserKey, []byte("ssswxzljoj@11"))
+	}
 	for m.heap.len() > 0 && m.err == nil {
 		item := m.heap.items[0].mergingIterLevel
+		if debug {
+			fmt.Printf("findNextEntry: key %s, seqnum %s, value %v kind %s\n", item.iterKV.K.UserKey, item.iterKV.K.Trailer, item.iterKV.V, item.iterKV.K.Kind().String())
+		}
 		// The levelIter internal iterator will interleave exclusive sentinel
 		// keys to keep files open until their range deletions are no longer
 		// necessary. Sometimes these are interleaved with the user key of a
@@ -966,6 +982,13 @@ func (m *mergingIter) seekGE(key []byte, level int, flags base.SeekGEFlags) erro
 		l := &m.levels[level]
 		if m.prefix != nil {
 			l.iterKV = l.iter.SeekPrefixGE(m.prefix, key, flags)
+			if bytes.Equal(key, []byte("dmxdvfmqn@182")) {
+				if l.iterKV == nil {
+					fmt.Printf("SeekPrefixGE: level %d %s key %s not present\n", level, l.iter, key)
+				} else {
+					fmt.Printf("SeekPrefixGE: level %d %s key %s, seqnum %s, value %v kind %s\n", level, l.iter, l.iterKV.K.UserKey, l.iterKV.K.Trailer, l.iterKV.V, l.iterKV.K.Kind().String())
+				}
+			}
 			if l.iterKV != nil {
 				if !bytes.Equal(m.prefix, m.split.Prefix(l.iterKV.K.UserKey)) {
 					// Prevent keys without a matching prefix from being added to the heap by setting

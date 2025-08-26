@@ -78,6 +78,7 @@ type ReadEnv struct {
 	// only be set when Virtual is non-nil.
 	IsSharedIngested bool
 	Block            block.ReadEnv
+	Bounds           *base.InternalKeyBounds
 }
 
 var NoReadEnv = ReadEnv{}

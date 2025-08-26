@@ -7,6 +7,7 @@ package pebble
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"sync"
@@ -1502,7 +1503,13 @@ func (i *Iterator) SeekPrefixGE(key []byte) bool {
 		}
 		key = upperBound
 	}
+	if bytes.Equal(key, []byte("ssswxzljoj@11")) {
+		fmt.Println("Seeked")
+	}
 	i.iterKV = i.iter.SeekPrefixGE(i.prefixOrFullSeekKey, key, flags)
+
+	//
+
 	i.stats.ForwardSeekCount[InternalIterCall]++
 	i.findNextEntry(nil)
 	i.maybeSampleRead()

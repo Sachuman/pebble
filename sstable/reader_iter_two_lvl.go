@@ -422,31 +422,48 @@ func (i *twoLevelIterator[I, PI, D, PD]) SeekPrefixGE(
 	// performing the seek and potentially loading additional blocks.
 	// However, for virtual tables (used in external file ingestion), the block
 	// properties may be stale, so we disable this optimization.
-	if i.secondLevel.maximumSuffixProperty != nil && len(key) > len(prefix) && i.secondLevel.readEnv.Virtual == nil {
-		prop := i.secondLevel.reader.UserProperties[i.secondLevel.maximumSuffixProperty.Name()]
-		maxSuffix, ok, err := i.secondLevel.maximumSuffixProperty.Extract([]byte(prop))
-		if err != nil {
-			i.secondLevel.err = err
-			return nil
-		}
+	if i.secondLevel.maximumSuffixProperty != nil && len(key) > len(prefix) && i.secondLevel.readEnv.Bounds != nil {
+		smallest := i.secondLevel.readEnv.Bounds.SmallestUserKey()
+		smallest = i.secondLevel.reader.Comparer.Split.Prefix(smallest)
+		largest := i.secondLevel.readEnv.Bounds.LargestUserKey()
+		largest = i.secondLevel.reader.Comparer.Split.Prefix(largest)
 
-		// We have a max suffix. If the seek key's suffix is less than the
-		// table's max suffix, return a synthetic key with that max suffix.
-		// We'll only actually perform the seek if the synthetic key rises to
-		// the top of the iterator's heap, and the iterator is Nexted.
-		if ok && maxSuffix != nil && i.secondLevel.cmp(key[len(prefix):], maxSuffix) < 0 {
-			// Build the synthetic key.
-			i.secondLevel.synthetic.kv.K.UserKey = append(append(i.secondLevel.synthetic.kv.K.UserKey[:0], prefix...), maxSuffix...)
-			i.secondLevel.synthetic.kv.K.Trailer = base.MakeTrailer(base.SeqNumMax, base.InternalKeyKindSyntheticKey)
-			i.secondLevel.synthetic.kv.V = base.InternalValue{}
-			i.secondLevel.synthetic.atSyntheticKey = true
-			// TODO(jackson): I think this copy of the seek key is necessary,
-			// but we should confirm and document exactly why--I think the seek
-			// key may be from a range tombstone iterator that is not guaranteed
-			// to still be open by the time singleLevelIterator.Next is called
-			// and we use the seek key to actually perform the seek.
-			i.secondLevel.synthetic.seekKey = append(i.secondLevel.synthetic.seekKey[:0], key...)
-			return &i.secondLevel.synthetic.kv
+		if i.secondLevel.cmp(prefix, smallest) > 0 && i.secondLevel.cmp(prefix, largest) < 0 {
+
+			prop := i.secondLevel.reader.UserProperties[i.secondLevel.maximumSuffixProperty.Name()]
+			var maxSuffix []byte
+			var ok bool
+			var err error
+			if i.secondLevel.transforms.HasSyntheticSuffix() {
+				maxSuffix = i.secondLevel.transforms.SyntheticSuffix()
+				ok = true
+			} else {
+				maxSuffix, ok, err = i.secondLevel.maximumSuffixProperty.Extract([]byte(prop))
+				if err != nil {
+					i.secondLevel.err = err
+					return nil
+				}
+
+			}
+
+			// We have a max suffix. If the seek key's suffix is less than the
+			// table's max suffix, return a synthetic key with that max suffix.
+			// We'll only actually perform the seek if the synthetic key rises to
+			// the top of the iterator's heap, and the iterator is Nexted.
+			if ok && maxSuffix != nil && i.secondLevel.cmp(key[len(prefix):], maxSuffix) < 0 {
+				// Build the synthetic key.
+				i.secondLevel.synthetic.kv.K.UserKey = append(append(i.secondLevel.synthetic.kv.K.UserKey[:0], prefix...), maxSuffix...)
+				i.secondLevel.synthetic.kv.K.Trailer = base.MakeTrailer(base.SeqNumMax, base.InternalKeyKindSyntheticKey)
+				i.secondLevel.synthetic.kv.V = base.InternalValue{}
+				i.secondLevel.synthetic.atSyntheticKey = true
+				// TODO(jackson): I think this copy of the seek key is necessary,
+				// but we should confirm and document exactly why--I think the seek
+				// key may be from a range tombstone iterator that is not guaranteed
+				// to still be open by the time singleLevelIterator.Next is called
+				// and we use the seek key to actually perform the seek.
+				i.secondLevel.synthetic.seekKey = append(i.secondLevel.synthetic.seekKey[:0], key...)
+				return &i.secondLevel.synthetic.kv
+			}
 		}
 	}
 
@@ -843,9 +860,9 @@ func (i *twoLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 	if i.secondLevel.synthetic.atSyntheticKey {
 		// Ensure the second-level index block is loaded/valid before resolving the
 		// synthetic. SeekPrefixGE may have deferred this work.
-		// TODO (sachin): This is might not be the best way to do this, but we need to load the secon level index
+		// TODO (sachin): This is might not be the best way to do this, but we need to load the second level index
 		// block before we can resolve the synthetic key.
-		if PI(&i.topLevelIndex).IsDataInvalidated() || !PI(&i.topLevelIndex).Valid() || PI(&i.secondLevel.index).IsDataInvalidated() ||
+		if PI(&i.topLevelIndex).IsDataInvalidated() || !PI(&i.topLevelIndex).Valid() || PI(&i.secondLevel.index).IsDataInvalidated() || i.secondLevel.synthetic.seekKey != nil ||
 			(i.secondLevel.boundsCmp <= 0) || PI(&i.topLevelIndex).SeparatorLT(i.secondLevel.synthetic.seekKey) {
 			// Position the top-level index at the synthetic seek key and load the
 			// corresponding second-level index block.
@@ -856,31 +873,27 @@ func (i *twoLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 				return nil
 			}
 			result := i.loadSecondLevelIndexBlock(+1)
-			if result != loadBlockOK {
-				if result == loadBlockIrrelevant {
-					// Respect upper bounds if already exceeded.
+			if result == loadBlockFailed {
+				i.secondLevel.boundsCmp = 0
+				return nil
+			}
+			if result == loadBlockIrrelevant {
+				// Respect upper bounds if already exceeded.
+				if i.secondLevel.upper != nil && PI(&i.topLevelIndex).SeparatorGT(
+					i.secondLevel.upper, !i.secondLevel.endKeyInclusive) {
 					i.secondLevel.exhaustedBounds = +1
 				}
 				i.secondLevel.synthetic.atSyntheticKey = false
-				return nil
+				i.secondLevel.boundsCmp = 0
+				return i.skipForward()
 			}
 
-			// same as single level iterator
-			kv := i.secondLevel.seekGEHelper(i.secondLevel.synthetic.seekKey, 0, base.SeekGEFlagsNone)
-			i.secondLevel.synthetic.atSyntheticKey = false
-			i.secondLevel.exhaustedBounds = 0
-			if kv == nil {
-				// Instead of letting seekGEHelper call skipForward() which might
-				// violate bounds, invalidate this iterator so the merging iterator
-				// moves to the next one in the heap
-				// i.secondLevel.exhaustedBounds = +1
-				// PD(&i.secondLevel.data).Invalidate()
-				// Ensure no stale synthetic remains if we could not resolve it.
-				i.secondLevel.synthetic.atSyntheticKey = false
-				return nil
-			}
+			// TODO : currently we cant take advantage of trySeekUsingNext in case of synthetic reseeks.
+			kv := i.secondLevel.Next()
 			return kv
 		}
+		i.secondLevel.synthetic.atSyntheticKey = false
+		return i.skipForward()
 	}
 
 	i.secondLevel.boundsCmp = 0

@@ -5,6 +5,7 @@
 package pebble
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"runtime/debug"
@@ -494,6 +495,9 @@ const (
 )
 
 func (l *levelIter) loadFile(file *manifest.TableMetadata, dir int) loadFileReturnIndicator {
+	if bytes.Equal(l.prefix, []byte("ssswxzljoj")) {
+		fmt.Printf("loadFile: %s prefix %s file %s\n", l.layer, l.prefix, file)
+	}
 	if l.iterFile == file {
 		if l.err != nil {
 			return noFileLoaded
@@ -754,6 +758,10 @@ func (l *levelIter) Last() *base.InternalKV {
 }
 
 func (l *levelIter) Next() *base.InternalKV {
+	debug := bytes.Equal(l.prefix, []byte("ssswxzljoj"))
+	if debug {
+		fmt.Printf("Nexting: %s\n", l.layer)
+	}
 	if l.exhaustedDir == -1 {
 		if l.lower != nil {
 			return l.SeekGE(l.lower, base.SeekGEFlagsNone)
@@ -764,7 +772,13 @@ func (l *levelIter) Next() *base.InternalKV {
 		return nil
 	}
 	if kv := l.iter.Next(); kv != nil {
+		if debug {
+			fmt.Printf("Nexted to %v %s\n", l.layer, kv)
+		}
 		return l.verify(kv)
+	}
+	if debug {
+		fmt.Printf("falling through to skipEmptyFileForward\n")
 	}
 	return l.verify(l.skipEmptyFileForward())
 }
