@@ -25,8 +25,7 @@ next
 ----
 a@10: (a10, .)
 a@8: (a8, .)
-OpNextSeekPrefixGE("a@12") = (a@10#inf,SYNTHETIC,"")
-OpNextSeekGE("a@12") = (a@5#10,SET,"10")
+OpNextSeekPrefixGE("a@12") = (a@5#10,SET,"10")
 OpNextClose() = nil
 
 # Basic test with no probes
@@ -72,12 +71,9 @@ a@8: (a8, .)
 a@6: (a6, .)
 .
 .
-OpNextSeekPrefixGE("a@15") = (a@10#inf,SYNTHETIC,"")
-OpNextSeekPrefixGE("a@15") = (a@10#inf,SYNTHETIC,"")
-OpNextSeekPrefixGE("a@15") = (a@10#inf,SYNTHETIC,"")
-OpNextSeekGE("a@15") = (a@5#10,SET,"10")
-OpNextSeekGE("a@15") = (a@5#10,SET,"10")
-OpNextSeekGE("a@15") = (a@5#10,SET,"10")
+OpNextSeekPrefixGE("a@15") = (a@5#10,SET,"10")
+OpNextSeekPrefixGE("a@15") = (a@5#10,SET,"10")
+OpNextSeekPrefixGE("a@15") = (a@5#10,SET,"10")
 OpNextClose() = nil
 OpNextClose() = nil
 OpNextClose() = nil
@@ -140,8 +136,6 @@ OpSpanSeekGEopSpanClose() = nil
 OpSpanSeekGEopSpanClose() = nil
 
 
-
-
 # Test synthetic key with range deletion interaction
 # This tests the case where a synthetic key is returned but range deletion affects iteration
 combined-iter probe-points=(4,(Log "OpSeekPrefixGE")) probe-points=(4,(Log "OpNext")) probe-rangedels=(4,(Log "OpSpanNext"))
@@ -194,24 +188,18 @@ next
 ----
 c@10: (2, .)
 c@99: (cc, .)
-OpNextSeekPrefixGE("c@15") = (c@10#inf,SYNTHETIC,"")
-OpNextSeekPrefixGE("c@15") = (c@10#inf,SYNTHETIC,"")
-OpNextSeekPrefixGE("c@15") = (c@10#inf,SYNTHETIC,"")
-OpSeekPrefixGESeekPrefixGE("c@15") = (c@10#inf,SYNTHETIC,"")
-OpSeekPrefixGESeekPrefixGE("c@15") = (c@10#inf,SYNTHETIC,"")
-OpNextSeekPrefixGE("c@15") = (c@10#inf,SYNTHETIC,"")
+OpNextSeekPrefixGE("c@15") = (c@10#2,SET,"2")
+OpNextSeekPrefixGE("c@15") = (c@10#2,SET,"2")
+OpNextSeekPrefixGE("c@15") = (c@10#2,SET,"2")
+OpSeekPrefixGESeekPrefixGE("c@15") = (c@10#2,SET,"2")
+OpSeekPrefixGESeekPrefixGE("c@15") = (c@10#2,SET,"2")
+OpNextSeekPrefixGE("c@15") = (c@10#2,SET,"2")
 OpSpanSeekGEopSpanSeekGE("c@15") = nil
 OpSpanSeekGEopSpanSeekGE("c@15") = nil
 OpSpanNextopSpanSeekGE("c@15") = nil
 OpSpanSeekGEopSpanSeekGE("c@10") = nil
 OpSpanSeekGEopSpanSeekGE("c@10") = nil
 OpSpanNextopSpanSeekGE("c@10") = nil
-OpNextNext() = (c@10#2,SET,"2")
-OpNextNext() = (c@10#2,SET,"2")
-OpNextNext() = (c@10#2,SET,"2")
-OpSeekPrefixGENext() = (c@10#2,SET,"2")
-OpSeekPrefixGENext() = (c@10#2,SET,"2")
-OpNextNext() = (c@10#2,SET,"2")
 OpNextNext() = (c@5#1,SET,"1")
 OpNextNext() = (c@5#1,SET,"1")
 OpNextNext() = (c@5#1,SET,"1")

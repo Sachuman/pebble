@@ -862,10 +862,27 @@ func (i *twoLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 		// synthetic. SeekPrefixGE may have deferred this work.
 		// TODO (sachin): This is might not be the best way to do this, but we need to load the second level index
 		// block before we can resolve the synthetic key.
+		i.secondLevel.err = nil
+		if i.useFilterBlock {
+			i.lastBloomFilterMatched = false
+			var mayContain bool
+			mayContain, i.secondLevel.err = i.secondLevel.bloomFilterMayContain(i.secondLevel.reader.Comparer.Split.Prefix(i.secondLevel.synthetic.seekKey))
+			if i.secondLevel.err != nil || !mayContain {
+				// In the i.secondLevel.err == nil case, this invalidation may not be necessary for
+				// correctness, and may be a place to optimize later by reusing the
+				// already loaded block. It was necessary in earlier versions of the code
+				// since the caller was allowed to call Next when SeekPrefixGE returned
+				// nil. This is no longer allowed.
+				PD(&i.secondLevel.data).Invalidate()
+				return nil
+			}
+			i.lastBloomFilterMatched = true
+		}
 		if PI(&i.topLevelIndex).IsDataInvalidated() || !PI(&i.topLevelIndex).Valid() || PI(&i.secondLevel.index).IsDataInvalidated() || i.secondLevel.synthetic.seekKey != nil ||
 			(i.secondLevel.boundsCmp <= 0) || PI(&i.topLevelIndex).SeparatorLT(i.secondLevel.synthetic.seekKey) {
 			// Position the top-level index at the synthetic seek key and load the
 			// corresponding second-level index block.
+
 			if !PI(&i.topLevelIndex).SeekGE(i.secondLevel.synthetic.seekKey) {
 				PD(&i.secondLevel.data).Invalidate()
 				PI(&i.secondLevel.index).Invalidate()

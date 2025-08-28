@@ -1295,19 +1295,8 @@ func (i *singleLevelIterator[I, PI, D, PD]) lastInternal() *base.InternalKV {
 func (i *singleLevelIterator[I, PI, D, PD]) Next() *base.InternalKV {
 
 	if i.synthetic.atSyntheticKey {
-		// if PI(&i.index).IsDataInvalidated() {
-		// 	PD(&i.data).Invalidate()
-		// 	// Clear any pending synthetic placeholder; underlying index/data are no longer valid.
-		// 	i.synthetic.atSyntheticKey = false
-		// 	return nil
-		// }
-		// TODO : currently we cant take advantage of trySeekUsingNext in case of synthetic reseeks.
-		i.exhaustedBounds = 0
-		i.boundsCmp = 0
-		i.positionedUsingLatestBounds = true
-		result := i.seekGEHelper(i.synthetic.seekKey, 0, base.SeekGEFlagsNone)
 		i.synthetic.atSyntheticKey = false
-		return result //i.seekPrefixGE(i.reader.Comparer.Split.Prefix(i.synthetic.seekKey), i.synthetic.seekKey, base.SeekGEFlagsNone)
+		return i.seekPrefixGE(i.reader.Comparer.Split.Prefix(i.synthetic.seekKey), i.synthetic.seekKey, base.SeekGEFlagsNone)
 	}
 
 	if i.exhaustedBounds == +1 {
