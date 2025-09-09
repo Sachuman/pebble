@@ -7,9 +7,11 @@ package cockroachkvs
 import (
 	"encoding/binary"
 	"math"
+	"strconv"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/internal/base"
 	"github.com/cockroachdb/pebble/sstable"
 )
 
@@ -143,4 +145,67 @@ func mapSuffixToInterval(b []byte) (sstable.BlockInterval, error) {
 		return sstable.BlockInterval{Lower: ts, Upper: ts + 1}, nil
 	}
 	return sstable.BlockInterval{}, nil
+}
+
+// MaxMVCCTimestampProperty implements sstable.MaximumSuffixProperty to extract
+// the maximum MVCC timestamp from a block property.
+//
+// Usage example:
+//
+//	prop := MaxMVCCTimestampProperty{}
+//	suffix, ok, err := prop.Extract(nil, encodedProperty)
+//	if ok && err == nil {
+//	    // suffix contains the encoded MVCC timestamp of the maximum key in the block
+//	    wallTime, logical, err := DecodeMVCCTimestampSuffix(suffix)
+//	}
+type MaxMVCCTimestampProperty struct{}
+
+// Name is part of the sstable.MaximumSuffixProperty interface.
+func (MaxMVCCTimestampProperty) Name() string {
+	return mvccWallTimeIntervalCollector
+}
+
+// Extract is part of the sstable.MaximumSuffixProperty interface.
+// It extracts the maximum MVCC timestamp from the encoded block property and
+// returns it as a CockroachDB-formatted suffix.
+func (MaxMVCCTimestampProperty) Extract(
+	dst []byte, encodedProperty []byte,
+) (suffix []byte, ok bool, err error) {
+	if len(encodedProperty) <= 1 {
+		return nil, false, nil
+	}
+	// First byte is shortID, skip it and decode interval from remainder.
+	interval, err := decodeBlockInterval(encodedProperty[1:])
+	if err != nil {
+		return nil, false, err
+	} else if interval.IsEmpty() {
+		return nil, false, nil
+	}
+	dst = append(dst, '@')
+	dst = strconv.AppendUint(dst, interval.Upper, 10)
+	return dst, true, nil
+}
+
+func decodeBlockInterval(buf []byte) (sstable.BlockInterval, error) {
+	if len(buf) == 0 {
+		return sstable.BlockInterval{}, nil
+	}
+	var i sstable.BlockInterval
+	var n int
+	i.Lower, n = binary.Uvarint(buf)
+	if n <= 0 || n >= len(buf) {
+		return sstable.BlockInterval{}, base.CorruptionErrorf("cannot decode interval from buf %x", buf)
+	}
+	pos := n
+	i.Upper, n = binary.Uvarint(buf[pos:])
+	pos += n
+	if pos != len(buf) || n <= 0 {
+		return sstable.BlockInterval{}, base.CorruptionErrorf("cannot decode interval from buf %x", buf)
+	}
+	// Delta decode.
+	i.Upper += i.Lower
+	if i.Upper < i.Lower {
+		return sstable.BlockInterval{}, base.CorruptionErrorf("unexpected overflow, upper %d < lower %d", i.Upper, i.Lower)
+	}
+	return i, nil
 }
