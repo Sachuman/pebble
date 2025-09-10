@@ -7,7 +7,6 @@ package cockroachkvs
 import (
 	"encoding/binary"
 	"math"
-	"strconv"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
@@ -175,37 +174,35 @@ func (MaxMVCCTimestampProperty) Extract(
 		return nil, false, nil
 	}
 	// First byte is shortID, skip it and decode interval from remainder.
-	interval, err := decodeBlockInterval(encodedProperty[1:])
-	if err != nil {
-		return nil, false, err
-	} else if interval.IsEmpty() {
+	buf := encodedProperty[1:]
+	if len(buf) == 0 {
 		return nil, false, nil
 	}
-	dst = append(dst, '@')
-	dst = strconv.AppendUint(dst, interval.Upper, 10)
-	return dst, true, nil
-}
 
-func decodeBlockInterval(buf []byte) (sstable.BlockInterval, error) {
-	if len(buf) == 0 {
-		return sstable.BlockInterval{}, nil
-	}
-	var i sstable.BlockInterval
+	// Decode the block interval using the same logic as sstable.decodeBlockInterval
+	var interval sstable.BlockInterval
 	var n int
-	i.Lower, n = binary.Uvarint(buf)
+	interval.Lower, n = binary.Uvarint(buf)
 	if n <= 0 || n >= len(buf) {
-		return sstable.BlockInterval{}, base.CorruptionErrorf("cannot decode interval from buf %x", buf)
+		return nil, false, base.CorruptionErrorf("cannot decode interval from buf %x", buf)
 	}
 	pos := n
-	i.Upper, n = binary.Uvarint(buf[pos:])
+	interval.Upper, n = binary.Uvarint(buf[pos:])
 	pos += n
 	if pos != len(buf) || n <= 0 {
-		return sstable.BlockInterval{}, base.CorruptionErrorf("cannot decode interval from buf %x", buf)
+		return nil, false, base.CorruptionErrorf("cannot decode interval from buf %x", buf)
 	}
 	// Delta decode.
-	i.Upper += i.Lower
-	if i.Upper < i.Lower {
-		return sstable.BlockInterval{}, base.CorruptionErrorf("unexpected overflow, upper %d < lower %d", i.Upper, i.Lower)
+	interval.Upper += interval.Lower
+	if interval.Upper < interval.Lower {
+		return nil, false, base.CorruptionErrorf("unexpected overflow, upper %d < lower %d", interval.Upper, interval.Lower)
 	}
-	return i, nil
+
+	if interval.IsEmpty() {
+		return nil, false, nil
+	}
+	dst = append(dst, make([]byte, 9)...)
+	binary.BigEndian.PutUint64(dst[len(dst)-9:], interval.Upper)
+	dst[len(dst)-1] = 9
+	return dst, true, nil
 }

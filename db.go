@@ -1113,7 +1113,6 @@ func finishInitializingIter(ctx context.Context, buf *iterAlloc) *Iterator {
 			memtables = memtables[:i]
 		}
 	}
-
 	if dbi.opts.pointKeys() {
 		// Construct the point iterator, initializing dbi.pointIter to point to
 		// dbi.merging. If this is called during a SetOptions call and this
