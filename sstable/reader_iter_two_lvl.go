@@ -458,7 +458,7 @@ func (i *twoLevelIterator[I, PI, D, PD]) SeekPrefixGE(
 		// table's max suffix, return a synthetic key with that max suffix.
 		// We'll only actually perform the seek if the synthetic key rises to
 		// the top of the iterator's heap, and the iterator is Nexted.
-		if ok && maxSuffix != nil && i.secondLevel.cmp(key[len(prefix):], maxSuffix) < 0 {
+		if ok && maxSuffix != nil && i.secondLevel.reader.Comparer.ComparePointSuffixes(key[len(i.secondLevel.reader.Comparer.Split.Prefix(key)):], maxSuffix) < 0 {
 			smallest := i.secondLevel.readEnv.InternalBounds.SmallestUserKey()
 			smallest = i.secondLevel.reader.Comparer.Split.Prefix(smallest)
 			largest := i.secondLevel.readEnv.InternalBounds.LargestUserKey()

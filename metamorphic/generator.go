@@ -48,12 +48,16 @@ type iterOpts struct {
 	// see IterOptions.UseL6Filters.
 	useL6Filters bool
 
+	maximumSuffixProperty pebble.MaximumSuffixProperty
+
 	// NB: If adding or removing fields, ensure IsZero is in sync.
 }
 
 func (o iterOpts) IsZero() bool {
 	return o.lower == nil && o.upper == nil && o.keyTypes == 0 &&
-		o.maskSuffix == nil && o.filterMin == nil && o.filterMax == nil && !o.useL6Filters
+		o.maskSuffix == nil && o.filterMin == nil && o.filterMax == nil && !o.useL6Filters &&
+		o.maximumSuffixProperty == nil
+
 }
 
 // GenerateOps generates n random operations, drawing randomness from the
@@ -548,6 +552,11 @@ func (g *generator) newIter() {
 	// Enable L6 filters with a 10% probability.
 	if g.rng.Float64() <= 0.1 {
 		opts.useL6Filters = true
+	}
+
+	// With 20% probability, enable the optimization
+	if g.rng.Float64() <= 0.2 {
+		opts.maximumSuffixProperty = g.keyGenerator.MaximumSuffixProperty()
 	}
 
 	g.itersLastOpts[iterID] = opts
@@ -1545,6 +1554,10 @@ func (g *generator) maybeMutateOptions(readerID objID, opts *iterOpts) {
 		// With 10% probability, flip enablement of L6 filters.
 		if g.rng.Float64() <= 0.1 {
 			opts.useL6Filters = !opts.useL6Filters
+		}
+
+		if opts.maximumSuffixProperty != nil && g.rng.IntN(5) == 0 {
+			opts.maximumSuffixProperty = nil
 		}
 	}
 }

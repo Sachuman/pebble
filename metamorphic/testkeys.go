@@ -125,6 +125,10 @@ func (kg *testkeyKeyGenerator) RandPrefix(newPrefix float64) []byte {
 	}
 }
 
+func (kg *testkeyKeyGenerator) MaximumSuffixProperty() pebble.MaximumSuffixProperty {
+	return sstable.MaxTestKeysSuffixProperty{}
+}
+
 // SkewedSuffix generates a random suffix according to the configuration's
 // suffix distribution. It takes a probability 0 ≤ p ≤ 1.0 indicating the
 // probability with which the generator should increase the max suffix generated

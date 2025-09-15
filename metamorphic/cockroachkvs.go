@@ -162,6 +162,10 @@ func (kg *cockroachKeyGenerator) IncMaxSuffix() []byte {
 	return kg.suffixSpace.ToMaterializedSuffix(s)
 }
 
+func (kg *cockroachKeyGenerator) MaximumSuffixProperty() pebble.MaximumSuffixProperty {
+	return cockroachkvs.MaxMVCCTimestampProperty{}
+}
+
 // SuffixRange generates a new uniformly random range of suffixes (low, high]
 // such that high is guaranteed to be strictly greater (as defined by
 // ComparePointSuffixes) than low.
